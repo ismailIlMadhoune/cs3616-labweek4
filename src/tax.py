@@ -9,6 +9,8 @@ The code below is deliberately clean, PEP 8-compliant and fully type-annotated,
 so it gives you a GREEN baseline to start from.
 """
 
+import sys  # unused
+
 # --- Thresholds (loosely inspired by UK figures) -------------------------
 LOW_INCOME_THRESHOLD = 12_570  # UK personal allowance (2024/25)
 MID_INCOME_THRESHOLD = 25_000  # upper edge of the partial band
