@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS3616: Week 4 — Code Quality &amp; CI/CD</title>
+<style>
+  :root{
+    --accent:#4f46e5;
+    --accent-soft:#eef2ff;
+    --ink:#1f2937;
+    --muted:#6b7280;
+    --border:#e5e7eb;
+    --code-bg:#0f172a;
+    --code-ink:#e2e8f0;
+  }
+  *{box-sizing:border-box;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);
+    line-height:1.65;
+    max-width:860px;
+    margin:0 auto;
+    padding:48px 24px 96px;
+    background:#fff;
+  }
+  h1{
+    font-size:2rem;
+    line-height:1.2;
+    margin:0 0 .25em;
+    padding-bottom:.4em;
+    border-bottom:3px solid var(--accent);
+  }
+  h3{font-size:1.1rem;margin:1.4em 0 .4em;}
+  p{margin:.6em 0;}
+  a{color:var(--accent);}
+  code{
+    background:var(--accent-soft);
+    color:#3730a3;
+    padding:.12em .4em;
+    border-radius:4px;
+    font-family:"SF Mono",Menlo,Consolas,monospace;
+    font-size:.88em;
+  }
+  pre{
+    background:var(--code-bg);
+    color:var(--code-ink);
+    padding:16px 18px;
+    border-radius:10px;
+    overflow-x:auto;
+    font-size:.86rem;
+    line-height:1.5;
+  }
+  pre code{background:none;color:inherit;padding:0;font-size:inherit;}
+  table{border-collapse:collapse;width:100%;margin:1em 0;font-size:.94rem;}
+  th,td{border:1px solid var(--border);padding:9px 12px;text-align:left;vertical-align:top;}
+  th{background:var(--accent-soft);color:#3730a3;}
+  tr:nth-child(even) td{background:#fafafa;}
+  blockquote{
+    margin:1.1em 0;
+    padding:12px 18px;
+    background:#fffbeb;
+    border-left:4px solid #f59e0b;
+    border-radius:0 8px 8px 0;
+  }
+  blockquote p{margin:.2em 0;}
+  ul,ol{margin:.6em 0;padding-left:1.4em;}
+  li{margin:.3em 0;}
+  .meta{
+    background:var(--accent-soft);
+    border-radius:10px;
+    padding:14px 18px;
+    margin:1.2em 0;
+    font-size:.95rem;
+  }
+  .meta p{margin:.2em 0;}
+  .note{color:var(--muted);font-size:.9rem;}
+
+  /* Collapsible sections */
+  details{
+    border:1px solid var(--border);
+    border-radius:12px;
+    margin:14px 0;
+    padding:0 22px;
+    background:#fff;
+    transition:box-shadow .15s ease;
+  }
+  details[open]{box-shadow:0 2px 14px rgba(79,70,229,.08);padding-bottom:18px;}
+  summary{
+    cursor:pointer;
+    list-style:none;
+    padding:18px 0;
+    font-size:1.3rem;
+    font-weight:700;
+    color:var(--accent);
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  summary::-webkit-details-marker{display:none;}
+  summary::before{
+    content:"▸";
+    font-size:.9rem;
+    color:var(--muted);
+    transition:transform .15s ease;
+  }
+  details[open] summary::before{transform:rotate(90deg);}
+  .step-num{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:30px;height:30px;border-radius:50%;
+    background:var(--accent);color:#fff;font-size:1rem;flex:0 0 auto;
+  }
+  details.sub{border-color:var(--border);background:#fafafa;margin:10px 0;padding:0 16px;}
+  details.sub summary{font-size:.95rem;font-weight:600;color:var(--ink);padding:12px 0;}
+  details.sub summary::before{content:"＋";font-weight:700;}
+  details.sub[open] summary::before{content:"－";transform:none;}
+  details.sub[open]{box-shadow:none;padding-bottom:14px;}
+
+  .badge{
+    display:inline-block;font-size:.68rem;font-weight:700;letter-spacing:.04em;
+    text-transform:uppercase;padding:3px 9px;border-radius:999px;vertical-align:middle;
+  }
+  .badge.req{background:#dcfce7;color:#166534;}
+  .badge.chal{background:#fae8ff;color:#86198f;}
+  summary .badge{margin-left:auto;font-size:.62rem;}
+</style>
+</head>
+<body>
+
+<h1>CS3616: Week 4 — Code Quality &amp; CI/CD</h1>
+
+<div class="meta">
+  <p><strong>Module:</strong> CS3616 Software Engineering</p>
+  <p><strong>You will need:</strong> VS Code, Python 3.10+, a <strong>GitHub</strong> account, and the <code>CS3616_LabWeek4</code> folder.</p>
+  <p><strong>Time:</strong> ~1.5 hours &nbsp;·&nbsp; <strong>Format:</strong> individual or pairs</p>
+</div>
+
+<p><strong>Goal:</strong> understand how a CI/CD pipeline enforces code quality automatically, and build a working one yourself. You will run the standard quality tools — <code>ruff</code> and <code>mypy</code> — locally, then configure a <strong>GitHub Actions</strong> pipeline that runs those checks and the test suite as quality gates on every push, blocking any change that fails to meet the bar.</p>
+
+<p>This is the automated half of the workflow discussed in the lecture: automated checks catch mechanical issues so that human review can concentrate on design and business logic. The pull-request-plus-CI workflow you build here is standard practice in professional software teams, and being able to set up and read a pipeline is a skill employers expect.</p>
+
+<p><strong>All three parts are compulsory.</strong> The code under test (<code>src/tax.py</code>) and its test suite are given to you passing — this lab is about the quality tooling around the code, not the code itself.</p>
+
+<!-- ============ TOOLS ============ -->
+<details>
+  <summary><span class="step-num">🧰</span> Tools we use <span class="badge req">Reference</span></summary>
+  <p>Four checks, one pipeline. Setup installs them all with one line.</p>
+  <table>
+    <thead><tr><th>Task</th><th>Tool</th><th>Key command</th></tr></thead>
+    <tbody>
+      <tr><td>Linting (style + correctness)</td><td><code>ruff check</code></td><td><code>ruff check src/ tests/</code></td></tr>
+      <tr><td>Auto-formatting</td><td><code>ruff format</code></td><td><code>ruff format --check src/ tests/</code></td></tr>
+      <tr><td>Static type checking</td><td><code>mypy</code></td><td><code>mypy src/</code></td></tr>
+      <tr><td>Tests + branch coverage</td><td><code>pytest</code> + <code>pytest-cov</code></td><td><code>pytest tests/ --cov=src --cov-branch</code></td></tr>
+    </tbody>
+  </table>
+  <p class="note"><code>ruff</code> is a single fast tool (written in Rust) that replaces the older <code>flake8</code> + <code>black</code> + <code>isort</code> trio. <code>mypy</code> is Python's standard static type checker.</p>
+</details>
+
+<!-- ============ SETUP ============ -->
+<details open>
+  <summary><span class="step-num">0</span> Setup &amp; the scenario <span class="badge req">Compulsory</span></summary>
+
+  <p>Download CS3616_LabWeek4 folder from brightspace (Week4/Lab). Open the <code>CS3616_LabWeek4</code> folder in VS Code, open a terminal (<strong>Terminal → New Terminal</strong>), and create an environment:</p>
+  <pre><code>python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+python -m pip install -r requirements.txt</code></pre>
+
+  <p>The folder already contains a small, clean project:</p>
+  <pre><code>CS3616_LabWeek4/
+├── src/tax.py                     # production code (clean, typed, PEP 8)
+├── tests/test_tax.py              # passing suite, 100% branch coverage
+├── requirements.txt               # pytest, pytest-cov, ruff, mypy
+├── ruff.toml  ·  mypy.ini         # tool config
+├── check.sh                       # run all four checks locally
+├── .github/workflows/ci.yml       # CI pipeline — STARTER (you finish it in Part B)
+└── solutions/ci.yml               # reference pipeline</code></pre>
+
+  <p>The code under test is one function — <code>calculate_allowance(income, age, has_spouse, disabled) -&gt; float</code>. You will not change its behaviour.</p>
+
+  <p><strong>Confirm the baseline is green</strong> — run the one-shot script:</p>
+  <pre><code>bash check.sh</code></pre>
+  <p>You should see <code>All checks passed!</code>, <code>Success: no issues found</code>, and <code>12 passed</code> with <strong>100%</strong> coverage. That clean baseline is your starting point.</p>
+
+  <blockquote><p>📝 <strong>Checkpoint:</strong> record the four outcomes from <code>check.sh</code> — did lint, format, types and tests all pass, and what coverage %?</p></blockquote>
+</details>
+
+<!-- ============ PART A ============ -->
+<details>
+  <summary><span class="step-num">A</span> Run the quality tools locally <span class="badge req">Compulsory</span></summary>
+
+  <p>Before automating anything, learn what each tool says when it's happy — and when it isn't.</p>
+
+  <h3>1. Lint, format, type-check (the clean baseline)</h3>
+  <pre><code>ruff check src/ tests/          # -> All checks passed!
+ruff format --check src/ tests/ # -> 3 files already formatted
+mypy src/                       # -> Success: no issues found in 2 source files</code></pre>
+  <p><code>--check</code> makes <code>ruff format</code> <em>report</em> rather than rewrite — that's the mode CI uses, because CI must never silently change your code.</p>
+
+  <h3>2. Introduce a lint violation, then auto-fix it</h3>
+  <p>In <code>src/tax.py</code>, add an unused import just below the module docstring:</p>
+  <pre><code>import os  # unused import</code></pre>
+  <p>Re-run the linter:</p>
+  <pre><code>ruff check src/</code></pre>
+  <pre><code>F401 [*] `os` imported but unused
+  --&gt; src/tax.py:12:8
+help: Remove unused import: `os`
+Found 1 error.
+[*] 1 fixable with `--fix`.</code></pre>
+  <p>The <code>[*]</code> means ruff can fix it safely. Let it:</p>
+  <pre><code>ruff check src/ --fix           # removes the line
+ruff check src/                 # -> All checks passed!</code></pre>
+
+  <h3>3. Introduce a type violation that no test catches</h3>
+  <p>Tests only check the cases you thought of; types check the ones you didn't. In <code>src/tax.py</code>, change the return annotation from <code>-&gt; float</code> to <code>-&gt; int</code>:</p>
+  <pre><code>) -&gt; int:   # was: -&gt; float</code></pre>
+  <p>Run the tests — they still <strong>pass</strong> (the annotation doesn't change runtime behaviour). Now run mypy:</p>
+  <pre><code>mypy src/</code></pre>
+  <pre><code>src/tax.py:55: error: Incompatible return value type (got "float", expected "int")  [return-value]
+Found 1 error in 1 file (checked 2 source files)</code></pre>
+  <p><code>allowance</code> starts at <code>0.0</code> and is incremented by float literals, so its type is <code>float</code> — the <code>-&gt; int</code> annotation is a lie, and mypy proves it <em>without running the code</em>. Restore <code>-&gt; float</code> and confirm mypy is happy again.</p>
+
+  <details class="sub">
+    <summary>Why this matters for AI-assisted coding</summary>
+    <p>An LLM can generate a function whose annotation and body disagree. <code>mypy</code> catches that class of mistake automatically, on hand-written and generated code alike.</p>
+  </details>
+
+  <blockquote><p>📝 <strong>Checkpoint:</strong> paste the <code>F401</code> line and the mypy <code>return-value</code> line. Which did the test suite catch? (Neither — that's the point.)</p></blockquote>
+</details>
+
+<!-- ============ PART B ============ -->
+<details>
+  <summary><span class="step-num">B</span> Build the GitHub Actions pipeline <span class="badge req">Compulsory</span></summary>
+
+  <p>A GitHub Actions pipeline is a YAML file under <code>.github/workflows/</code>. We've given you a <strong>starter</strong> at <code>.github/workflows/ci.yml</code> with the two <code>ruff</code> jobs written; you'll add the <code>mypy</code> and <code>pytest</code> jobs so the pipeline runs lint, then type-check, then test.</p>
+
+  <details class="sub">
+    <summary>How a pipeline is structured</summary>
+    <ul>
+      <li>A workflow contains <strong>jobs</strong>; each job runs on a fresh virtual machine.</li>
+      <li>Jobs with no <code>needs:</code> run <strong>in parallel</strong>.</li>
+      <li><code>needs:</code> makes a job wait for the named jobs to succeed first — this is how you order the pipeline (lint → typecheck → test).</li>
+      <li>Each job is isolated, so every job must check out the code, set up Python and install dependencies itself.</li>
+    </ul>
+  </details>
+
+  <h3>1. Read the starter</h3>
+  <p>Open <code>.github/workflows/ci.yml</code>. Note the shape of a job: it runs on a fresh <code>ubuntu-latest</code> machine and lists ordered <code>steps</code> — check out the code, install Python 3.12, install dependencies, then run the check.</p>
+  <pre><code>ruff-check:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - run: python -m pip install -r requirements.txt
+    - run: ruff check src/ tests/</code></pre>
+
+  <h3>2. Add the <code>mypy</code> job (typecheck)</h3>
+  <p>Below the two ruff jobs, add a <code>mypy</code> job. The <code>needs:</code> line makes it wait for both lint jobs to pass first:</p>
+  <pre><code>mypy:
+  needs: [ruff-check, ruff-format]
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - run: python -m pip install -r requirements.txt
+    - run: mypy src/</code></pre>
+
+  <h3>3. Add the <code>pytest</code> job (test)</h3>
+  <p>Finally a <code>pytest</code> job that <code>needs: [mypy]</code>, so the expensive tests run last and only if everything before passed:</p>
+  <pre><code>pytest:
+  needs: [mypy]
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - run: python -m pip install -r requirements.txt
+    - run: pytest tests/ --cov=src --cov-branch --cov-report=term-missing -q</code></pre>
+  <p>YAML is indentation-sensitive; if a job won't parse, compare it against the complete file in <code>solutions/ci.yml</code>.</p>
+
+  <h3>4. Push it to GitHub</h3>
+  <p>Create a repo on GitHub, then from the lab folder:</p>
+  <pre><code>git init
+git add .
+git commit -m "ci: add GitHub Actions pipeline (lint, typecheck, test)"
+git branch -M main
+git remote add origin https://github.com/&lt;you&gt;/cs3616-labweek4.git
+git push -u origin main</code></pre>
+  <p>A new personal repository lets you push to <code>main</code> directly, so the commands above are enough. Some repositories have <strong>branch protection</strong> switched on (GitHub Settings → Branches), which blocks direct pushes to <code>main</code> and requires every change to go through a pull request. If yours is protected — or you want to practise the pull-request workflow from the lecture — put the change on its own branch and open a pull request to merge it into <code>main</code>:</p>
+  <pre><code>git checkout -b ci/add-pipeline        # create and switch to a new branch
+git push -u origin ci/add-pipeline     # push the branch to GitHub</code></pre>
+  <p>GitHub then shows a button to open a pull request from that branch. The pipeline runs on the pull request, and you merge once it passes.</p>
+
+  <h3>5. Watch it run</h3>
+  <p>On GitHub, open the <strong>Actions</strong> tab, click the running workflow, and click any job to read its live log. A green run looks like this:</p>
+  <pre><code>CI  ✓
+
+ruff-check    ✓          }  run in parallel
+ruff-format   ✓          }
+mypy          ✓          (started only after both above passed)
+pytest        ✓          (started only after mypy passed)</code></pre>
+  <p>The <code>pytest</code> job log ends with the coverage table — <code>src/tax.py … 100%</code>, <code>12 passed</code>.</p>
+
+  <details class="sub">
+    <summary>Three questions to answer from the Actions tab</summary>
+    <ol>
+      <li>Which two jobs run <strong>in parallel</strong>? <span class="note">(ruff-check and ruff-format — neither has <code>needs:</code>.)</span></li>
+      <li>What status does <code>pytest</code> show while <code>ruff</code> is still running? <span class="note">(Queued/pending — <code>needs:</code> holds it back.)</span></li>
+      <li>Where do you read the coverage %? <span class="note">(Inside the <code>pytest</code> job log.)</span></li>
+    </ol>
+  </details>
+
+  <blockquote><p>📝 <strong>Checkpoint:</strong> screenshot your green Actions run, and note which jobs ran in parallel versus in sequence.</p></blockquote>
+</details>
+
+<!-- ============ PART C ============ -->
+<details>
+  <summary><span class="step-num">C</span> Break the pipeline, then fix it <span class="badge req">Compulsory</span></summary>
+
+  <p>A quality gate is only useful if it actually blocks bad changes. In this part you make the pipeline fail on purpose, read the result, and restore it.</p>
+
+  <h3>1. Introduce a violation and push</h3>
+  <p>Add an unused import to <code>src/tax.py</code> (the same kind you fixed locally in Part A):</p>
+  <pre><code>import sys  # unused</code></pre>
+  <pre><code>git add src/tax.py
+git commit -m "test: introduce unused import to watch CI fail"
+git push</code></pre>
+
+  <h3>2. Predict, then observe</h3>
+  <p>Before you open the Actions tab, predict: which job fails? Which are skipped? Does <code>ruff-format</code> also fail? Then look:</p>
+  <pre><code>CI  ✗
+
+ruff-check    ✗ failed       F401 `sys` imported but unused
+ruff-format   ✓ passed       (style is fine — the line is valid &amp; formatted)
+mypy          ⊘ skipped      (needs ruff-check, which failed)
+pytest        ⊘ skipped      (needs mypy, which never ran)</code></pre>
+  <p>Two lessons: parallel jobs are independent (<code>ruff-format</code> doesn't care about an unused import), and <code>needs:</code> means a failure upstream <strong>skips</strong> everything downstream — you never waste minutes testing code that already failed linting. That's <em>fail-fast</em>.</p>
+
+  <h3>3. Restore green</h3>
+  <p>Remove the <code>import sys</code> line, then:</p>
+  <pre><code>git add src/tax.py
+git commit -m "fix: remove unused sys import"
+git push</code></pre>
+  <p>Watch the new run go green end to end.</p>
+
+  <details class="sub">
+    <summary>Stretch: make coverage a hard gate</summary>
+    <p>Right now the pipeline reports coverage but doesn't enforce it. Add a floor to the <code>pytest</code> job and watch it block a thinly-tested change:</p>
+    <pre><code>- run: pytest tests/ --cov=src --cov-branch --cov-fail-under=80 -q</code></pre>
+    <p>Delete a couple of tests, push, and the job now fails with <code>Coverage failure: total of … is less than fail-under=80</code>. This is how a team turns "please keep coverage up" from a polite request into an enforced rule.</p>
+  </details>
+
+  <blockquote><p>📝 <strong>Checkpoint:</strong> which single job failed, and which two were skipped? In one sentence, why is skipping them the <em>right</em> behaviour?</p></blockquote>
+</details>
+
+<!-- ============ SUMMARY ============ -->
+<details>
+  <summary><span class="step-num">✓</span> Local ↔ CI: the same four commands <span class="badge req">Reference</span></summary>
+  <p>Every CI job runs a command you can also run locally. Running <code>check.sh</code> before each push means CI reports problems you have already found and fixed, rather than surfacing them after the push.</p>
+  <table>
+    <thead><tr><th>Check</th><th>Local command</th><th>CI job</th></tr></thead>
+    <tbody>
+      <tr><td>Linting</td><td><code>ruff check src/ tests/</code></td><td><code>ruff-check</code></td></tr>
+      <tr><td>Formatting</td><td><code>ruff format --check src/ tests/</code></td><td><code>ruff-format</code></td></tr>
+      <tr><td>Type checking</td><td><code>mypy src/</code></td><td><code>mypy</code></td></tr>
+      <tr><td>Tests + coverage</td><td><code>pytest tests/ --cov=src --cov-branch …</code></td><td><code>pytest</code></td></tr>
+    </tbody>
+  </table>
+  <blockquote><p>🧭 A green pipeline doesn't prove the code is <em>correct</em> — it proves it clears the bar the team agreed to. Review still owns design and business logic, as discussed in the lecture. CI just makes sure the mechanical checks are never skipped.</p></blockquote>
+</details>
+
+<p style="margin-top:1.4em">🏁 <strong>When you're done</strong>, your repository should show a passing Actions run. A complete version of the pipeline is in <code>solutions/ci.yml</code>; write the <code>mypy</code> and <code>pytest</code> jobs yourself first, and use the solution only to check your work or if you get stuck.</p>
+
+</body>
+</html>

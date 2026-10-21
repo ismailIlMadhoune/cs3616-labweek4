@@ -1,0 +1,59 @@
+# CS3616 Week 4 lab — GitHub Actions CI pipeline  (REFERENCE SOLUTION)
+# ---------------------------------------------------------------------------
+# Copy the mypy and pytest jobs into .github/workflows/ci.yml to complete Part B.
+#
+# The `needs:` keys order the pipeline:
+#   ruff-check  ─┐
+#   ruff-format ─┴─> mypy ──> pytest        (fail-fast: later jobs skip on failure)
+#
+# Each job runs on a fresh machine and is isolated, so every job repeats
+# checkout / setup-python / install — a job never inherits another's filesystem.
+# ---------------------------------------------------------------------------
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  ruff-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements.txt
+      - run: ruff check src/ tests/
+
+  ruff-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements.txt
+      - run: ruff format --check src/ tests/
+
+  mypy:
+    needs: [ruff-check, ruff-format]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements.txt
+      - run: mypy src/
+
+  pytest:
+    needs: [mypy]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements.txt
+      - run: pytest tests/ --cov=src --cov-branch --cov-report=term-missing -q

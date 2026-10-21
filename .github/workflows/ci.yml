@@ -1,0 +1,59 @@
+# CS3616 Week 4 lab — GitHub Actions CI pipeline  (STARTER)
+# ---------------------------------------------------------------------------
+# Two jobs (ruff-check, ruff-format) are DONE for you as worked examples.
+# In Part B you add the `mypy` and `pytest` jobs by filling in the TODOs, so
+# the pipeline runs lint -> typecheck -> test, failing fast.
+#
+# A full reference lives in solutions/ci.yml — try it yourself first.
+# ---------------------------------------------------------------------------
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  # ---- Stage 1: lint (these two run in parallel) --------------------------
+  ruff-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements.txt
+      - run: ruff check src/ tests/
+
+  ruff-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements.txt
+      - run: ruff format --check src/ tests/
+
+  # ---- Stage 2: typecheck (runs only after BOTH lint jobs pass) -----------
+  mypy:
+    needs: [ruff-check, ruff-format]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements.txt
+      - run: mypy src/
+
+  # ---- Stage 3: test (runs only after typecheck passes) -------------------
+  pytest:
+    needs: [mypy]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r requirements.txt
+      - run: pytest tests/ --cov=src --cov-branch --cov-report=term-missing -q

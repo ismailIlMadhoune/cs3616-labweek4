@@ -1,0 +1,8 @@
+# CS3616 Week 4 lab — ruff config (same rule families the CI job enforces).
+line-length = 88
+target-version = "py312"
+
+[lint]
+# E/W = pycodestyle, F = pyflakes, I = import order,
+# N = pep8-naming, UP = pyupgrade, B = flake8-bugbear.
+select = ["E", "W", "F", "I", "N", "UP", "B"]
